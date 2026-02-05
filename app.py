@@ -5,84 +5,70 @@ import json
 import os
 from datetime import datetime
 
-# --- 1. 页面配置与专属图标 ---
-st.set_page_config(page_title="冰冰加油站", page_icon="🦁", layout="centered")
+# --- 1. 页面配置 ---
+st.set_page_config(page_title="冰冰冲刺宝典", page_icon="🦁", layout="centered")
 
-# --- 2. 深度美化界面 (修复隐身文字 + 浪漫粉色调) ---
+# --- 2. 样式美化 (粉色温情 + 答题卡片) ---
 st.markdown("""
     <style>
-    /* 强制整体背景 */
     .stApp { background-color: #fff9fb !important; }
-    
-    /* 专属加油语样式 */
     .bing-cheer {
         color: #ff4b7d !important;
         font-weight: bold;
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         text-align: center;
-        padding: 15px;
+        padding: 12px;
         background: #ffffff;
         border-radius: 15px;
         border: 2px dashed #ffb6c1;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 10px rgba(255,182,193,0.3);
+        margin-bottom: 15px;
+        box-shadow: 0 4px 10px rgba(255,182,193,0.2);
     }
-    
-    /* 答题卡片：强制白底黑字 */
     .question-box {
         background-color: #ffffff !important;
-        color: #1f1f1f !important;
+        color: #333333 !important;
         padding: 20px;
         border-radius: 15px;
         border-left: 8px solid #ffb6c1;
         margin-bottom: 20px;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.05);
     }
-
-    /* 选项文字：强制黑色 */
-    .stRadio [data-testid="stMarkdownContainer"] p {
-        color: #000000 !important;
-        font-size: 1.1rem !important;
-    }
-
-    /* 覆盖所有可能变白的文字 */
-    h1, h2, h3, p, span, label, .stMarkdown {
-        color: #333333 !important;
-    }
-
-    /* 按钮美化 */
+    .stRadio [data-testid="stMarkdownContainer"] p { color: #000000 !important; font-size: 1.1rem !important; }
+    h1, h2, h3, p, span, label { color: #333333 !important; }
     .stButton button {
-        width: 100%;
-        border-radius: 20px;
-        font-weight: bold;
-        height: 3em;
-        background-color: #ffb6c1 !important;
-        color: white !important;
-        border: none !important;
+        width: 100%; border-radius: 20px; font-weight: bold; height: 3em;
+        background-color: #ffb6c1 !important; color: white !important; border: none !important;
     }
+    .wrong-text { color: #ff4d4f; font-weight: bold; }
+    .right-text { color: #52c41a; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. 核心逻辑：解析题库 + 插入彩蛋 ---
+# --- 3. 数据读写逻辑 ---
+PROGRESS_FILE = "progress.json"
+WRONG_FILE = "wrong_questions.json"
+
+def load_json(file, default):
+    if os.path.exists(file):
+        with open(file, "r", encoding="utf-8") as f: return json.load(f)
+    return default
+
+def save_json(file, data):
+    with open(file, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False)
+
+# --- 4. 解析题库 + 彩蛋 ---
 @st.cache_data
 def load_bank():
     file_name = "题库.txt"
     bank = []
-    if not os.path.exists(file_name):
-        return []
-    
+    if not os.path.exists(file_name): return []
     content = ""
     for enc in ['utf-8', 'gbk', 'gb18030']:
         try:
-            with open(file_name, 'r', encoding=enc) as f:
-                content = f.read()
-            if content.strip(): break
+            with open(file_name, 'r', encoding=enc) as f: content = f.read(); break
         except: continue
     
-    # 正则解析
     pattern = re.compile(r'(\d+)\.(.*?)(?=(?:\d+\.)|(?:\Z))', re.S)
     matches = pattern.findall(content)
-    
     for m_id, m_body in matches:
         ans_match = re.search(r'正确答案[:：]\s*([A-D])', m_body)
         if not ans_match: continue
@@ -93,101 +79,111 @@ def load_bank():
         options = {k.strip(): v.strip() for k, v in opt_matches}
         title_part = clean_body.split('A.')[0].strip()
         title_part = re.sub(r'广东省建筑施工企业.*?题库', '', title_part).strip()
-        
         if title_part and options:
             bank.append({"id": m_id, "title": title_part, "options": options, "answer": answer})
     
-    # ✨ 这里就是给冰冰的彩蛋题目 ✨
-    egg_question = {
-        "id": "9999",
-        "title": "【本场考试最重要的一题】谁是考场里最可爱、最优秀、且一定会高分通过考试的人？",
-        "options": {
-            "A": "黄冰同学",
-            "B": "超努力的冰冰",
-            "C": "最棒的冰冰🦁",
-            "D": "以上全是，没得反驳！"
-        },
-        "answer": "D"
-    }
-    bank.append(egg_question)
+    # 彩蛋题
+    bank.append({"id": "BING_99", "title": "【必答题】谁是世界上最可爱且一定会通过考试的小仙女？", 
+                 "options": {"A": "黄冰", "B": "冰冰", "C": "超棒的冰冰🦁", "D": "以上全是"}, "answer": "D"})
     return bank
 
-# --- 4. 鼓励语库 ---
-ENCOURAGEMENTS = [
-    "冰冰加油！你是最棒的 🦁",
-    "每一题的坚持，都是冰冰在发光 🌟",
-    "哇！这题也难不倒冰冰，厉害！😘",
-    "坚持住，黄冰同学，终点就在前面！🚀",
-    "冰冰累不累？考完带你去吃好吃的 🍦",
-    "不管考多少分，冰冰在我心里都是 100 分 💖"
-]
-
 # --- 5. 状态管理 ---
-if 'exam_started' not in st.session_state: st.session_state.exam_started = False
-if 'user_answers' not in st.session_state: st.session_state.user_answers = {}
+if 'mode' not in st.session_state: st.session_state.mode = "home" # home, exam, review
 if 'page' not in st.session_state: st.session_state.page = 0
+if 'user_answers' not in st.session_state: st.session_state.user_answers = {}
 
-bank_data = load_bank()
+all_bank = load_bank()
+progress = load_json(PROGRESS_FILE, {"passed_ids": []})
+wrong_data = load_json(WRONG_FILE, {}) # {id: {"user_ans": "A", "time": "..."}}
 
-# --- 6. 界面流程 ---
-if not st.session_state.exam_started and not st.session_state.get('show_result'):
-    st.title("🦁 冰冰专属模拟考场")
-    st.markdown("<div class='bing-cheer'>黄冰同学，准备好开始挑战了吗？我会一直陪着你的！✨</div>", unsafe_allow_html=True)
+# --- 6. 首页逻辑 ---
+if st.session_state.mode == "home":
+    st.title("🦁 冰冰冲刺宝典")
+    passed_count = len(progress["passed_ids"])
+    total_count = len(all_bank)
     
-    if st.button("开始新一轮挑战 (100题)", type="primary"):
-        # 随机抽99题，再把彩蛋题必填进去凑成100题
-        normal_questions = random.sample([q for q in bank_data if q['id'] != "9999"], 99)
-        egg_q = [q for q in bank_data if q['id'] == "9999"]
-        current_exam = normal_questions + egg_q
-        random.shuffle(current_exam) # 打乱顺序，让她猜不到彩蛋在哪
-        
-        st.session_state.current_exam = current_exam
-        st.session_state.user_answers = {}
-        st.session_state.page = 0
-        st.session_state.exam_started = True
-        st.rerun()
+    st.markdown(f"<div class='bing-cheer'>黄冰同学，目前已消灭 {passed_count}/{total_count} 道题！<br>距离 9 号考试还有 { (datetime(2026,2,9)-datetime.now()).days } 天，加油！</div>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🚀 开始模拟考试 (100道新题)"):
+            # 过滤掉已经做对的题 (彩蛋题除外，每次都出)
+            available = [q for q in all_bank if q['id'] not in progress["passed_ids"] or q['id'] == "BING_99"]
+            if len(available) < 100:
+                st.session_state.current_exam = random.sample(all_bank, 100)
+            else:
+                st.session_state.current_exam = random.sample(available, 100)
+            st.session_state.mode = "exam"; st.session_state.page = 0; st.session_state.user_answers = {}; st.rerun()
+            
+    with col2:
+        if st.button(f"📖 进入错题集 ({len(wrong_data)} 题)"):
+            if not wrong_data: st.warning("冰冰目前还没有错题哦，太棒了！")
+            else:
+                st.session_state.current_exam = [q for q in all_bank if q['id'] in wrong_data]
+                st.session_state.mode = "review"; st.session_state.page = 0; st.rerun()
 
-elif st.session_state.exam_started:
+    if st.button("🗑️ 重置所有进度 (重新开始)"):
+        if st.checkbox("确认清空冰冰的所有记录吗？"):
+            save_json(PROGRESS_FILE, {"passed_ids": []}); save_json(WRONG_FILE, {})
+            st.rerun()
+
+# --- 7. 考试/复习 逻辑 ---
+elif st.session_state.mode in ["exam", "review"]:
     q_idx = st.session_state.page
-    q = st.session_state.current_exam[q_idx]
+    exam_list = st.session_state.current_exam
+    q = exam_list[q_idx]
     
-    # 动态鼓励
-    cheer = random.choice(ENCOURAGEMENTS)
-    st.markdown(f"<div class='bing-cheer'>✨ {cheer}</div>", unsafe_allow_html=True)
+    cheers = ["冰冰加油！🦁", "这题肯定难不倒你 ✨", "你是最棒的，黄冰！🌟", "再坚持一下下 🚀"]
+    st.markdown(f"<div class='bing-cheer'>{random.choice(cheers)}</div>", unsafe_allow_html=True)
     
-    st.progress((q_idx + 1) / 100)
+    st.progress((q_idx + 1) / len(exam_list))
     st.markdown(f"<div class='question-box'><b>第 {q_idx+1} 题：</b><br>{q['title']}</div>", unsafe_allow_html=True)
     
+    # 选项显示
     opts = q['options']
-    ans = st.radio("请选择：", [f"{k}. {v}" for k, v in opts.items()], key=f"q_{q_idx}")
+    formatted_opts = [f"{k}. {v}" for k, v in opts.items()]
+    
+    # 复习模式显示上次错误
+    if st.session_state.mode == "review":
+        st.info(f"💡 正确答案是：{q['answer']}")
+    
+    ans = st.radio("请选择：", formatted_opts, key=f"ans_{q['id']}_{q_idx}")
     if ans: st.session_state.user_answers[q_idx] = ans[0]
 
     st.write("---")
-    col1, col2 = st.columns(2)
-    with col1:
+    c1, c2, c3 = st.columns(3)
+    with c1:
         if q_idx > 0: st.button("⬅️ 上一题", on_click=lambda: setattr(st.session_state, 'page', st.session_state.page - 1))
-    with col2:
-        if q_idx < 99:
+    with c3:
+        if q_idx < len(exam_list) - 1:
             st.button("下一题 ➡️", on_click=lambda: setattr(st.session_state, 'page', st.session_state.page + 1))
         else:
-            if st.button("🏁 完成！看成绩！"):
-                score = sum(1 for i, q in enumerate(st.session_state.current_exam) if st.session_state.user_answers.get(i) == q['answer'])
-                st.session_state.final_score = score
-                st.session_state.exam_started = False
-                st.session_state.show_result = True
-                st.rerun()
+            if st.button("🏁 完成提交"):
+                # 交卷逻辑
+                new_passed = set(progress["passed_ids"])
+                score = 0
+                for i, q_obj in enumerate(exam_list):
+                    u_ans = st.session_state.user_answers.get(i)
+                    if u_ans == q_obj['answer']:
+                        score += 1
+                        new_passed.add(q_obj['id'])
+                        if q_obj['id'] in wrong_data: del wrong_data[q_obj['id']] # 答对了，从错题集移除
+                    else:
+                        wrong_data[q_obj['id']] = {"user_ans": u_ans, "time": str(datetime.now())}
+                
+                save_json(PROGRESS_FILE, {"passed_ids": list(new_passed)})
+                save_json(WRONG_FILE, wrong_data)
+                st.session_state.final_score = (score / len(exam_list)) * 100
+                st.session_state.mode = "result"; st.rerun()
 
-elif st.session_state.get('show_result'):
-    s = st.session_state.final_score
-    st.title("考试结束啦！")
+# --- 8. 结果页 ---
+elif st.session_state.mode == "result":
+    s = int(st.session_state.final_score)
+    st.title("考试成绩报告")
     if s >= 60:
-        st.balloons()
-        st.success(f"🎉 厉害了我的冰！{s} 分！简直是天才少女！")
-        st.markdown("<h3 style='text-align: center; color: #ff4b7d;'>走吧，带最优秀的黄冰同学庆祝去！🍔</h3>", unsafe_allow_html=True)
+        st.balloons(); st.success(f"🎉 太牛了！冰冰考了 {s} 分！通过了！")
     else:
-        st.snow()
-        st.error(f"💔 呜呜，只有 {s} 分。没关系，冰冰不哭，咱们再试一次，你最棒了！")
+        st.snow(); st.error(f"💔 哎呀只有 {s} 分。没关系，错题已经帮你记下了，咱们练练错题！")
     
-    if st.button("再陪冰冰练一轮"):
-        st.session_state.show_result = False
-        st.rerun()
+    if st.button("回首页"):
+        st.session_state.mode = "home"; st.rerun()
