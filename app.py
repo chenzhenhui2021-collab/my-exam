@@ -5,207 +5,189 @@ import json
 import os
 from datetime import datetime
 
-# --- 页面配置 ---
-st.set_page_config(page_title="安全生产模拟考试", page_icon="📝", layout="centered")
+# --- 1. 页面配置与专属图标 ---
+st.set_page_config(page_title="冰冰加油站", page_icon="🦁", layout="centered")
 
-# --- 深度美化界面 (修复手机端文字隐身问题) ---
+# --- 2. 深度美化界面 (修复隐身文字 + 浪漫粉色调) ---
 st.markdown("""
     <style>
-    /* 强制整体背景和文字颜色，防止深色模式干扰 */
-    .stApp {
-        background-color: #f8f9fa !important;
+    /* 强制整体背景 */
+    .stApp { background-color: #fff9fb !important; }
+    
+    /* 专属加油语样式 */
+    .bing-cheer {
+        color: #ff4b7d !important;
+        font-weight: bold;
+        font-size: 1.2rem;
+        text-align: center;
+        padding: 15px;
+        background: #ffffff;
+        border-radius: 15px;
+        border: 2px dashed #ffb6c1;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 10px rgba(255,182,193,0.3);
     }
     
     /* 答题卡片：强制白底黑字 */
     .question-box {
         background-color: #ffffff !important;
-        color: #1f1f1f !important;  /* 强制深灰色文字 */
+        color: #1f1f1f !important;
         padding: 20px;
         border-radius: 15px;
-        border-left: 5px solid #1890ff;
+        border-left: 8px solid #ffb6c1;
         margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 12px rgba(0,0,0,0.05);
     }
 
     /* 选项文字：强制黑色 */
     .stRadio [data-testid="stMarkdownContainer"] p {
         color: #000000 !important;
-        font-size: 1.15rem !important;
-        line-height: 1.6;
+        font-size: 1.1rem !important;
     }
 
-    /* 标题颜色 */
-    h1, h2, h3, p, span, label {
-        color: #1f1f1f !important;
+    /* 覆盖所有可能变白的文字 */
+    h1, h2, h3, p, span, label, .stMarkdown {
+        color: #333333 !important;
     }
 
-    /* 按钮样式保持不变 */
+    /* 按钮美化 */
     .stButton button {
         width: 100%;
-        border-radius: 8px;
+        border-radius: 20px;
         font-weight: bold;
-        background-color: #ffffff;
-        color: #1f1f1f;
-        border: 1px solid #d9d9d9;
-    }
-    
-    /* 进度条文字颜色 */
-    .stCaption {
-        color: #595959 !important;
+        height: 3em;
+        background-color: #ffb6c1 !important;
+        color: white !important;
+        border: none !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 核心逻辑：严谨解析题库 ---
+# --- 3. 核心逻辑：解析题库 + 插入彩蛋 ---
 @st.cache_data
 def load_bank():
     file_name = "题库.txt"
+    bank = []
     if not os.path.exists(file_name):
-        st.error(f"未找到文件: {file_name}")
         return []
     
     content = ""
-    # 按照优先级尝试多种编码
-    encodings = ['utf-8', 'gbk', 'gb18030', 'utf-16']
-    for enc in encodings:
+    for enc in ['utf-8', 'gbk', 'gb18030']:
         try:
             with open(file_name, 'r', encoding=enc) as f:
                 content = f.read()
-            if content.strip(): # 如果读到了内容，就跳出循环
-                break
-        except Exception:
-            continue
+            if content.strip(): break
+        except: continue
     
-    if not content:
-        st.error("题库文件读取失败，请检查文件格式或编码。")
-        return []
-
-    # 这里的正则保持不变...
+    # 正则解析
     pattern = re.compile(r'(\d+)\.(.*?)(?=(?:\d+\.)|(?:\Z))', re.S)
     matches = pattern.findall(content)
     
-    bank = []
     for m_id, m_body in matches:
         ans_match = re.search(r'正确答案[:：]\s*([A-D])', m_body)
         if not ans_match: continue
         answer = ans_match.group(1)
         clean_body = re.sub(r'正确答案[:：].*', '', m_body, flags=re.S).strip()
-        
         opt_pattern = re.compile(r'([A-D])\s*[\.．]\s*(.*?)(?=[A-D]\s*[\.．]|\Z)', re.S)
         opt_matches = opt_pattern.findall(clean_body)
         options = {k.strip(): v.strip() for k, v in opt_matches}
-        
         title_part = clean_body.split('A.')[0].strip()
         title_part = re.sub(r'广东省建筑施工企业.*?题库', '', title_part).strip()
         
         if title_part and options:
             bank.append({"id": m_id, "title": title_part, "options": options, "answer": answer})
     
+    # ✨ 这里就是给冰冰的彩蛋题目 ✨
+    egg_question = {
+        "id": "9999",
+        "title": "【本场考试最重要的一题】谁是考场里最可爱、最优秀、且一定会高分通过考试的人？",
+        "options": {
+            "A": "黄冰同学",
+            "B": "超努力的冰冰",
+            "C": "最棒的冰冰🦁",
+            "D": "以上全是，没得反驳！"
+        },
+        "answer": "D"
+    }
+    bank.append(egg_question)
     return bank
 
-# --- 历史记录 ---
-def save_history(score, passed):
-    record = {"time": datetime.now().strftime("%m-%d %H:%M"), "score": score, "result": "及格" if passed else "不及格"}
-    history = []
-    if os.path.exists("history.json"):
-        try:
-            with open("history.json", "r", encoding="utf-8") as f: history = json.load(f)
-        except: pass
-    history.append(record)
-    with open("history.json", "w", encoding="utf-8") as f: json.dump(history, f, ensure_ascii=False)
+# --- 4. 鼓励语库 ---
+ENCOURAGEMENTS = [
+    "冰冰加油！你是最棒的 🦁",
+    "每一题的坚持，都是冰冰在发光 🌟",
+    "哇！这题也难不倒冰冰，厉害！😘",
+    "坚持住，黄冰同学，终点就在前面！🚀",
+    "冰冰累不累？考完带你去吃好吃的 🍦",
+    "不管考多少分，冰冰在我心里都是 100 分 💖"
+]
 
-# --- 状态管理 ---
+# --- 5. 状态管理 ---
 if 'exam_started' not in st.session_state: st.session_state.exam_started = False
 if 'user_answers' not in st.session_state: st.session_state.user_answers = {}
 if 'page' not in st.session_state: st.session_state.page = 0
 
-bank = load_bank()
+bank_data = load_bank()
 
-# --- 导航逻辑 ---
-def next_page(): st.session_state.page += 1
-def prev_page(): st.session_state.page -= 1
-
-# --- 页面显示 ---
+# --- 6. 界面流程 ---
 if not st.session_state.exam_started and not st.session_state.get('show_result'):
-    st.title("🏗️ 安全生产考核模拟")
-    st.write(f"已准备好题库，共 {len(bank)} 道题目。")
+    st.title("🦁 冰冰专属模拟考场")
+    st.markdown("<div class='bing-cheer'>黄冰同学，准备好开始挑战了吗？我会一直陪着你的！✨</div>", unsafe_allow_html=True)
     
-    if st.button("开始正式考试 (随机100题)", type="primary"):
-        if len(bank) >= 100:
-            st.session_state.current_exam = random.sample(bank, 100)
-        else:
-            st.session_state.current_exam = bank.copy()
-            random.shuffle(st.session_state.current_exam)
+    if st.button("开始新一轮挑战 (100题)", type="primary"):
+        # 随机抽99题，再把彩蛋题必填进去凑成100题
+        normal_questions = random.sample([q for q in bank_data if q['id'] != "9999"], 99)
+        egg_q = [q for q in bank_data if q['id'] == "9999"]
+        current_exam = normal_questions + egg_q
+        random.shuffle(current_exam) # 打乱顺序，让她猜不到彩蛋在哪
+        
+        st.session_state.current_exam = current_exam
         st.session_state.user_answers = {}
         st.session_state.page = 0
         st.session_state.exam_started = True
         st.rerun()
 
-    if os.path.exists("history.json"):
-        with st.expander("📊 查看往期成绩"):
-            with open("history.json", "r", encoding="utf-8") as f:
-                history = json.load(f)
-                for h in reversed(history[-10:]): # 只显示最近10条
-                    st.write(f"`{h['time']}` — **{h['score']}分** ({h['result']})")
-
 elif st.session_state.exam_started:
     q_idx = st.session_state.page
-    exam_list = st.session_state.current_exam
-    q = exam_list[q_idx]
+    q = st.session_state.current_exam[q_idx]
     
-    # 顶部进度
-    st.caption(f"进度: {q_idx + 1} / {len(exam_list)}")
-    st.progress((q_idx + 1) / len(exam_list))
+    # 动态鼓励
+    cheer = random.choice(ENCOURAGEMENTS)
+    st.markdown(f"<div class='bing-cheer'>✨ {cheer}</div>", unsafe_allow_html=True)
     
-    # 题干显示区域
-    st.markdown(f"""<div class='question-box'><b>题目：</b><br>{q['title']}</div>""", unsafe_allow_html=True)
+    st.progress((q_idx + 1) / 100)
+    st.markdown(f"<div class='question-box'><b>第 {q_idx+1} 题：</b><br>{q['title']}</div>", unsafe_allow_html=True)
     
-    # 选项显示
     opts = q['options']
-    formatted_opts = [f"{k}. {v}" for k, v in opts.items()]
-    
-    # 获取之前选过的索引
-    prev_ans = st.session_state.user_answers.get(q_idx)
-    default_idx = None
-    if prev_ans:
-        try: default_idx = list(opts.keys()).index(prev_ans)
-        except: pass
-
-    # 选项
-    ans = st.radio("选择你的答案：", formatted_opts, index=default_idx, key=f"radio_{q_idx}")
-    if ans:
-        st.session_state.user_answers[q_idx] = ans[0]
+    ans = st.radio("请选择：", [f"{k}. {v}" for k, v in opts.items()], key=f"q_{q_idx}")
+    if ans: st.session_state.user_answers[q_idx] = ans[0]
 
     st.write("---")
-    
-    # 底部导航按钮
     col1, col2 = st.columns(2)
     with col1:
-        if q_idx > 0:
-            st.button("⬅️ 上一题", on_click=prev_page)
+        if q_idx > 0: st.button("⬅️ 上一题", on_click=lambda: setattr(st.session_state, 'page', st.session_state.page - 1))
     with col2:
-        if q_idx < len(exam_list) - 1:
-            st.button("下一题 ➡️", on_click=next_page)
+        if q_idx < 99:
+            st.button("下一题 ➡️", on_click=lambda: setattr(st.session_state, 'page', st.session_state.page + 1))
         else:
-            if st.button("🏁 提交试卷", type="primary"):
-                score = sum(1 for i, q in enumerate(exam_list) if st.session_state.user_answers.get(i) == q['answer'])
+            if st.button("🏁 完成！看成绩！"):
+                score = sum(1 for i, q in enumerate(st.session_state.current_exam) if st.session_state.user_answers.get(i) == q['answer'])
                 st.session_state.final_score = score
                 st.session_state.exam_started = False
                 st.session_state.show_result = True
-                save_history(score, score >= 60)
                 st.rerun()
 
 elif st.session_state.get('show_result'):
-    st.balloons() if st.session_state.final_score >= 60 else st.snow()
-    st.title("考试成绩报告")
-    score = st.session_state.final_score
-    
-    if score >= 60:
-        st.success(f"🎉 恭喜！你通过了考试。\n\n得分：{score} / 100")
+    s = st.session_state.final_score
+    st.title("考试结束啦！")
+    if s >= 60:
+        st.balloons()
+        st.success(f"🎉 厉害了我的冰！{s} 分！简直是天才少女！")
+        st.markdown("<h3 style='text-align: center; color: #ff4b7d;'>走吧，带最优秀的黄冰同学庆祝去！🍔</h3>", unsafe_allow_html=True)
     else:
-        st.error(f"💔 很遗憾，未及格。\n\n得分：{score} / 100")
-        
-    if st.button("再考一次"):
+        st.snow()
+        st.error(f"💔 呜呜，只有 {s} 分。没关系，冰冰不哭，咱们再试一次，你最棒了！")
+    
+    if st.button("再陪冰冰练一轮"):
         st.session_state.show_result = False
         st.rerun()
-
