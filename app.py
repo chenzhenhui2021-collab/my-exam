@@ -46,47 +46,46 @@ st.markdown("""
 def load_bank():
     file_name = "题库.txt"
     if not os.path.exists(file_name):
+        st.error(f"未找到文件: {file_name}")
         return []
     
     content = ""
-    for enc in ['utf-8', 'gbk', 'utf-16']:
+    # 按照优先级尝试多种编码
+    encodings = ['utf-8', 'gbk', 'gb18030', 'utf-16']
+    for enc in encodings:
         try:
             with open(file_name, 'r', encoding=enc) as f:
                 content = f.read()
-            break
-        except: continue
+            if content.strip(): # 如果读到了内容，就跳出循环
+                break
+        except Exception:
+            continue
     
-    # 按照数字编号切割题目
+    if not content:
+        st.error("题库文件读取失败，请检查文件格式或编码。")
+        return []
+
+    # 这里的正则保持不变...
     pattern = re.compile(r'(\d+)\.(.*?)(?=(?:\d+\.)|(?:\Z))', re.S)
     matches = pattern.findall(content)
     
     bank = []
     for m_id, m_body in matches:
-        # 1. 提取答案并从原始内容中彻底删除，防止显示
         ans_match = re.search(r'正确答案[:：]\s*([A-D])', m_body)
         if not ans_match: continue
         answer = ans_match.group(1)
-        
-        # 清理掉包含“正确答案”的那一行及之后的所有内容
         clean_body = re.sub(r'正确答案[:：].*', '', m_body, flags=re.S).strip()
         
-        # 2. 提取选项
         opt_pattern = re.compile(r'([A-D])\s*[\.．]\s*(.*?)(?=[A-D]\s*[\.．]|\Z)', re.S)
         opt_matches = opt_pattern.findall(clean_body)
         options = {k.strip(): v.strip() for k, v in opt_matches}
         
-        # 3. 提取题干 (取 A. 之前的内容)
         title_part = clean_body.split('A.')[0].strip()
-        # 过滤掉一些页眉页脚干扰词
         title_part = re.sub(r'广东省建筑施工企业.*?题库', '', title_part).strip()
         
         if title_part and options:
-            bank.append({
-                "id": m_id,
-                "title": title_part,
-                "options": options,
-                "answer": answer
-            })
+            bank.append({"id": m_id, "title": title_part, "options": options, "answer": answer})
+    
     return bank
 
 # --- 历史记录 ---
