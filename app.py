@@ -8,35 +8,50 @@ from datetime import datetime
 # --- 页面配置 ---
 st.set_page_config(page_title="安全生产模拟考试", page_icon="📝", layout="centered")
 
-# --- 深度美化界面 (适配手机) ---
+# --- 深度美化界面 (修复手机端文字隐身问题) ---
 st.markdown("""
     <style>
-    /* 隐藏顶部红线和菜单 */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    stDeployButton {display:none;}
+    /* 强制整体背景和文字颜色，防止深色模式干扰 */
+    .stApp {
+        background-color: #f8f9fa !important;
+    }
     
-    /* 答题卡片样式 */
+    /* 答题卡片：强制白底黑字 */
     .question-box {
-        background-color: #ffffff;
+        background-color: #ffffff !important;
+        color: #1f1f1f !important;  /* 强制深灰色文字 */
         padding: 20px;
         border-radius: 15px;
         border-left: 5px solid #1890ff;
         margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-    
-    /* 选项文字放大 */
+
+    /* 选项文字：强制黑色 */
     .stRadio [data-testid="stMarkdownContainer"] p {
+        color: #000000 !important;
         font-size: 1.15rem !important;
         line-height: 1.6;
     }
-    
-    /* 按钮全宽 */
+
+    /* 标题颜色 */
+    h1, h2, h3, p, span, label {
+        color: #1f1f1f !important;
+    }
+
+    /* 按钮样式保持不变 */
     .stButton button {
         width: 100%;
         border-radius: 8px;
         font-weight: bold;
+        background-color: #ffffff;
+        color: #1f1f1f;
+        border: 1px solid #d9d9d9;
+    }
+    
+    /* 进度条文字颜色 */
+    .stCaption {
+        color: #595959 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -193,3 +208,4 @@ elif st.session_state.get('show_result'):
     if st.button("再考一次"):
         st.session_state.show_result = False
         st.rerun()
+
